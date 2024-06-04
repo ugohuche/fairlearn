@@ -1,39 +1,32 @@
 # Copyright (c) Fairlearn contributors.
 # Licensed under the MIT License.
 
+import logging
 from math import ceil
 from time import time
 
+from numpy import arange, argmax, zeros
+from sklearn.base import (
+    BaseEstimator,
+    ClassifierMixin,
+    RegressorMixin,
+    TransformerMixin,
+)
+from sklearn.exceptions import NotFittedError
 from sklearn.utils import check_scalar
+from sklearn.utils.validation import check_array, check_is_fitted, check_random_state
 
+from ._backend_engine import BackendEngine
 from ._constants import (
+    _CALLBACK_RETURNS_ERROR,
     _IMPORT_ERROR_MESSAGE,
     _KWARG_ERROR_MESSAGE,
     _PREDICTION_FUNCTION_AMBIGUOUS,
     _PROGRESS_UPDATE,
-    _CALLBACK_RETURNS_ERROR,
 )
-from ._backend_engine import BackendEngine
+from ._preprocessor import FloatTransformer, _get_type
 from ._pytorch_engine import PytorchEngine
 from ._tensorflow_engine import TensorflowEngine
-from ._preprocessor import (
-    FloatTransformer,
-    _get_type,
-)
-from sklearn.base import (
-    ClassifierMixin,
-    RegressorMixin,
-    BaseEstimator,
-    TransformerMixin,
-)
-from sklearn.utils.validation import (
-    check_is_fitted,
-    check_random_state,
-    check_array,
-)
-from sklearn.exceptions import NotFittedError
-from numpy import zeros, argmax, arange
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -310,13 +303,9 @@ class _AdversarialFairness(BaseEstimator):
             (self.epochs, "epochs"),
             (self.max_iter, "max_iter"),
         ):
-            check_scalar(
-                kw, kwname, (int, float), min_val=-1, include_boundaries="left"
-            )
+            check_scalar(kw, kwname, (int, float), min_val=-1, include_boundaries="left")
             if kw <= 0.0 and kw != -1:
-                raise ValueError(
-                    _KWARG_ERROR_MESSAGE.format(kwname, "a positive number or -1")
-                )
+                raise ValueError(_KWARG_ERROR_MESSAGE.format(kwname, "a positive number or -1"))
 
         for kw, kwname in (
             (self.shuffle, "shuffle"),
@@ -331,9 +320,7 @@ class _AdversarialFairness(BaseEstimator):
             if not callable(self.callbacks):
                 if not isinstance(self.callbacks, list):
                     raise ValueError(
-                        _KWARG_ERROR_MESSAGE.format(
-                            "callbacks", "a callable or list of callables"
-                        )
+                        _KWARG_ERROR_MESSAGE.format("callbacks", "a callable or list of callables")
                     )
                 else:
                     for cb in self.callbacks:
@@ -388,9 +375,7 @@ class _AdversarialFairness(BaseEstimator):
 
         self.predictor_loss_ = read_kw(Y, self.predictor_loss, "predictor_loss")
         self.adversary_loss_ = read_kw(A, self.adversary_loss, "adversary_loss")
-        self.predictor_function_ = read_kw(
-            Y, self.predictor_function, "predictor_function"
-        )
+        self.predictor_function_ = read_kw(Y, self.predictor_function, "predictor_function")
 
         for kw, kwname in (
             (self.y_transform, "y_transform"),
@@ -408,8 +393,7 @@ class _AdversarialFairness(BaseEstimator):
                 raise ValueError(
                     _KWARG_ERROR_MESSAGE.format(
                         kwname,
-                        "a keyword or a sklearn Transformer"
-                        + "(subclass TransformerMixin)",
+                        "a keyword or a sklearn Transformer" + "(subclass TransformerMixin)",
                     )
                 )
 
@@ -505,10 +489,9 @@ class _AdversarialFairness(BaseEstimator):
                             and len(predictor_losses) >= 1
                             and len(adversary_losses) >= 1
                         ):
-                            ETA = (
-                                (last_update_time - start_time + 1e-6)
-                                / (progress + 1e-6)
-                            ) * (1 - progress)
+                            ETA = ((last_update_time - start_time + 1e-6) / (progress + 1e-6)) * (
+                                1 - progress
+                            )
                             # + 1e-6 for numerical stability
                             logger.info(
                                 _PROGRESS_UPDATE.format(  # noqa : G001
@@ -738,9 +721,7 @@ class _AdversarialFairness(BaseEstimator):
         # The keyword self.backend was weird
         if self.backend not in ["torch", "tensorflow", "auto"]:
             raise ValueError(
-                _KWARG_ERROR_MESSAGE.format(
-                    "backend", "one of ['auto', 'torch','tensorflow']"
-                )
+                _KWARG_ERROR_MESSAGE.format("backend", "one of ['auto', 'torch','tensorflow']")
             )
         # Or no backend is installed
         if not (torch_installed or tensorflow_installed):
@@ -772,9 +753,9 @@ class _AdversarialFairness(BaseEstimator):
         elif isinstance(self.predictor_function_, str):
             kw = self.predictor_function_
             if kw == "binary":
-                self.predictor_function_ = lambda pred: (
-                    pred >= self.threshold_value
-                ).astype(float)
+                self.predictor_function_ = lambda pred: (pred >= self.threshold_value).astype(
+                    float
+                )
             elif kw == "category":
 
                 def loss(pred):
@@ -796,6 +777,16 @@ class _AdversarialFairness(BaseEstimator):
     def __sklearn_is_fitted__(self):
         """Speed up check_is_fitted."""
         return hasattr(self, "_is_setup")
+
+    def _more_tags(self):
+        return {
+            "_xfail_checks": {
+                "check_parameters_default_constructible": (
+                    "cannot have an empty default parameter of a mutable type."
+                ),
+                "check_estimators_pickle": "pickling is not possible.",
+            }
+        }
 
 
 class AdversarialFairnessClassifier(_AdversarialFairness, ClassifierMixin):
