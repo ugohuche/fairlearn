@@ -3,6 +3,7 @@
 
 import logging
 
+import narwhals as nw
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, MetaEstimatorMixin
@@ -130,9 +131,9 @@ class ExponentiatedGradient(BaseEstimator, MetaEstimatorMixin):
         y : numpy.ndarray, pandas.DataFrame, pandas.Series, or list
             Label vector
         """
-        self.lambda_vecs_EG_ = pd.DataFrame()
-        self.lambda_vecs_LP_ = pd.DataFrame()
-        self.lambda_vecs_ = pd.DataFrame()
+        self.lambda_vecs_EG_ = nw.from_native(pd.DataFrame(), eager_only=True)
+        self.lambda_vecs_LP_ = nw.from_native(pd.DataFrame(), eager_only=True)
+        self.lambda_vecs_ = nw.from_native(pd.DataFrame(), eager_only=True)
 
         logger.debug("...Exponentiated Gradient STARTING")
 
@@ -340,7 +341,7 @@ class ExponentiatedGradient(BaseEstimator, MetaEstimatorMixin):
         """
         check_is_fitted(self)
 
-        pred = pd.DataFrame()
+        pred = nw.from_native(pd.DataFrame(), eager_only=True)
         for t in range(len(self._hs)):
             if self.weights_[t] == 0:
                 pred[t] = np.zeros(len(X))
